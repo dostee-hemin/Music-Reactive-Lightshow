@@ -6,7 +6,7 @@ FFT fft;                             // FFT object to analyze the frequency spec
 SoundFile file;                      // SoundFile object to load and play the MP3 file
 float[] spectrum = new float[bands]; // Array to store the FFT spectrum data
 
-float previousValue;                 // The average value of the spectrum calculated on the previous frame 
+int currentVisualization = 0;        // ID of the visualization to display
 
 void setup() {
   size(800, 600);
@@ -26,21 +26,29 @@ void draw() {
   // Perform FFT analysis and store the result in the spectrum array
   fft.analyze(spectrum);
 
-  // When the spectrogram reaches the end of the screen width, reset the canvas
-  if(frameCount % width == 0) background(255);
+  // Display the current visualization
+  switch(currentVisualization) {
+    case 0:
+      drawBarGraph();
+      break;
+    case 1:
+      drawSpectrogram();
+      break;
+    case 2:
+      drawAverageValue();
+      break;
+  }
 
-  // Calculate the average value of every band in the spectrum
-  float sumOfValues = 0;
-  for(int i=0; i<bands; i++) sumOfValues += spectrum[i];
-  float averageValue = sumOfValues / bands;
-  averageValue = map(averageValue,0,0.05,0,1); // Scale the average to a value between 0 and 1
+  // Display instructions to change the visualization
+  fill(0);
+  noStroke();
+  textSize(30);
+  textAlign(CENTER, CENTER);
+  text("Click the Mouse to Change Visualization", width/2, 20);
+}
 
-  // Draw the line from the previous value to the current value
-  stroke(0);
-  strokeWeight(1);
-  float x = frameCount % width;
-  line(x-1,height*0.75-previousValue*height,x,height*0.75-averageValue*height);
-
-  // Set the next frame's previous value to be the current average value
-  previousValue = averageValue;
+// Everytime the user clicks the mouse, the screen is reset and the visualization changes
+void mousePressed() {
+  currentVisualization = (currentVisualization+1) % 3;
+  background(255);
 }
