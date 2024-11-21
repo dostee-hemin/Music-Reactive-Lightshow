@@ -25,6 +25,8 @@ float scrollSpeed;                   // The speed at which we scroll through the
 ArrayList<Float> averageValues = new ArrayList<Float>();                // Contains the average spectrum values of every frame of the song
 ArrayList<Integer> beatIndices = new ArrayList<Integer>();     // Contains the indices of the average values that indicate a beat
 boolean isRecording = true;          // Determines whether or not we add new average value calculations to the list
+float cursorPosition;                // The location in the song to start playing music in seconds
+int beatAnimationAlpha;
 
 void setup() {
     size(800, 600);
@@ -71,6 +73,23 @@ void draw() {
         return;
     }
 
+    // Display the cursor on the wave
+    float cursorX = cursorPosition/song.duration() * averageValues.size() - startViewIndex;
+    stroke(50);
+    strokeWeight(2);
+    line(cursorX,height/2+10,cursorX,height/4-10);
+    strokeWeight(10);
+    point(cursorX,height/4-10);
+
+    // Display the current position of the song on the wave
+    int positionX = round(song.position()/song.duration() * averageValues.size()) - startViewIndex;
+    stroke(100);
+    strokeWeight(1);
+    line(positionX,height/2+10,positionX,height/4-10);
+
+
+
+
     // Display a dot over the index that the mouse is hovering over
     int mouseIndex = mouseX+startViewIndex;
     float mouseBassY = getWaveY(averageValues.get(mouseIndex));
@@ -85,7 +104,14 @@ void draw() {
         float x = i-startViewIndex;
         float y = getWaveY(averageValues.get(i));
         point(x,y);
+
+        if(abs(positionX-x) < 2) beatAnimationAlpha = 255;
     }
+
+    stroke(200,beatAnimationAlpha);
+    strokeWeight(100-float(255-beatAnimationAlpha)/255*50);
+    point(width/2,height-height/4);
+    beatAnimationAlpha = max(beatAnimationAlpha-10, 0);
 
     // Move the along the wave according to the scroll speed
     startViewIndex = int(constrain(startViewIndex + scrollSpeed*10, 0, averageValues.size()-width));
@@ -200,11 +226,39 @@ void mousePressed() {
     if(isRecording) return;
 
     int index = mouseX + startViewIndex;
+    
+    switch(mouseButton) {
+        // Add the index if the user clicks the left mouse button
+        case LEFT:
+            beatIndices.add(index);
+            saveBeatData();
+            break;
+        
+        // Remove the index if the user clicks the right mouse button
+        case RIGHT:
+            int indexInList = beatIndices.indexOf(index);
+            if (indexInList != -1) {
+                beatIndices.remove(indexInList);
+                saveBeatData();
+            }
+            break;
 
-    // Add the index if the user clicks the left mouse button
-    if(mouseButton == LEFT && !beatIndices.contains(index)) beatIndices.add(index);
-    // Remove the index if the user clicks the right mouse button
-    else if(mouseButton == RIGHT && beatIndices.contains(index)) beatIndices.remove(beatIndices.indexOf(index));
+        // Set the position of the cursor if the user clicks the middle mouse button
+        case CENTER:
+            cursorPosition = float(index)/averageValues.size() * song.duration();
+            setCursor();
+            break;
+    }
+}
 
-    saveBeatData();
+void setCursor() {
+    song.jump(cursorPosition);
+    song.pause();
+}
+
+void keyPressed() {
+    if(isRecording) return;
+
+    if(song.isPlaying()) setCursor();
+    else song.play();
 }
