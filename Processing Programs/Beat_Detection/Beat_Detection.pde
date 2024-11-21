@@ -135,6 +135,7 @@ void setupNextSong() {
     averageValues.clear();
     beatIndices.clear();
     cursorPosition = 0;
+    startViewIndex = 0;
     minValue = 1;
     maxValue = 0;
 
