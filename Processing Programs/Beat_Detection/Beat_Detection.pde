@@ -1,4 +1,5 @@
 import processing.sound.*;
+import java.io.File;
 import java.time.format.DateTimeFormatter;  
 import java.time.LocalDateTime; 
 
@@ -6,16 +7,15 @@ int bands = 512;                     // Number of frequency bands for the FFT
 int samplingRate = 44100;            // Sampling rate of audio file
 int lowPassFrequency = 200;          // The maximum frequency we will hear (in Hertz)
 
-String songName = "8 bit hero - intro sequence";   // The name of the audio file
-String fileExtension = ".mp3";                     // The type of the audio file
+ArrayList<String> songFilePaths = new ArrayList<String>();   // Path to all song files in the "Songs" folder
+String currentSongName;              // The name of the audio file currently being used
 
 FFT fft;                             // FFT object to analyze the frequency spectrum
 LowPass lowPass;                     // LowPass object that will limit the frequencies we hear to only low frequencies
 SoundFile song;                      // SoundFile object to load and play the MP3 file
 float[] spectrum = new float[bands]; // Array to store the FFT spectrum data
-int maxBandIndex;                    // The highest index of the band in the low pass range
+int maxBandIndex = lowPassFrequency * bands / (samplingRate/2);    // The highest index of the band in the low pass range
 
-float previousValue;                 // The average value of the spectrum calculated on the previous frame 
 float minValue;                      // The minimum average value of the spectrum we've seen so far
 float maxValue;                      // The maximum average value of the spectrum we've seen so far
 
@@ -26,33 +26,25 @@ ArrayList<Float> averageValues = new ArrayList<Float>();                // Conta
 ArrayList<Integer> beatIndices = new ArrayList<Integer>();     // Contains the indices of the average values that indicate a beat
 boolean isRecording = true;          // Determines whether or not we add new average value calculations to the list
 float cursorPosition;                // The location in the song to start playing music in seconds
-int beatAnimationAlpha;
+int beatAnimationAlpha;              // Fade value of the pulsing circle indicating a recorded beat
 
 void setup() {
     size(800, 600);
 
-    // Load the MP3 file and start playing it
-    song = new SoundFile(this, songName+fileExtension);
-
-    // Create the low pass filter and apply the threshold to the audio file
-    lowPass = new LowPass(this);
-    lowPass.process(song, lowPassFrequency);
-
-    // Initialize the FFT object with the number of bands and set the audio input source to the sound file
-    fft = new FFT(this, bands);
-    fft.input(song);
-
-    // Calculate the last band in the array that is within the low pass range
-    maxBandIndex = lowPassFrequency * bands / (samplingRate/2);
-
-    // Load all existing data. If no song data exists, record the song data
-    loadSongData();
-    loadBeatData();
-    if(isRecording) song.play();  
+    // Load all song file paths and setup the program for the first song
+    loadSongs();
+    setupNextSong();
 }
 
 void draw() {
     background(255);
+
+    // Display the name of the current song at the top center of the screen
+    fill(0);
+    noStroke();
+    textSize(30);
+    textAlign(CENTER,CENTER);
+    text(currentSongName, width/2, 30);
 
     // Display the wave of average values over time
     stroke(0);
@@ -70,6 +62,23 @@ void draw() {
 
     if(isRecording) {
         recordSongValues();
+
+        // Display a progress bar showing how much is left before the song finishes recording
+        fill(0);
+        noStroke();
+        textSize(30);
+        textAlign(CENTER,CENTER);
+        text("Recording...", width/2, height*0.75);
+        fill(0,200,50);
+        noStroke();
+        rectMode(CORNER);
+        rect(width/2-200,height*0.75+40, song.position()/song.duration() * 400,60);
+        noFill();
+        stroke(0);
+        strokeWeight(6);
+        rectMode(CENTER);
+        rect(width/2,height*0.75+70,400,60);
+
         return;
     }
 
@@ -108,6 +117,7 @@ void draw() {
         if(abs(positionX-x) < 2) beatAnimationAlpha = 255;
     }
 
+    // Display a pulsing fading circle whenever the song passes over a recorded beat
     stroke(200,beatAnimationAlpha);
     strokeWeight(100-float(255-beatAnimationAlpha)/255*50);
     point(width/2,height-height/4);
@@ -118,6 +128,37 @@ void draw() {
     scrollSpeed *= 0.9;
 }
 
+// Function to load the next song we have from the list of song file paths
+void setupNextSong() {
+    // Reset all recording values
+    isRecording = true;
+    averageValues.clear();
+    beatIndices.clear();
+    cursorPosition = 0;
+    minValue = 1;
+    maxValue = 0;
+
+    // Stop playing the song if it's playing
+    if(song != null) song.pause();
+
+    // Load the song file, get the song name, and remove this song from the list of file paths
+    song = new SoundFile(this, "./Songs/" + songFilePaths.get(0));
+    currentSongName = split(songFilePaths.get(0), ".")[0];
+    songFilePaths.remove(0);
+
+    // Create the low pass filter and apply the threshold to the audio file
+    lowPass = new LowPass(this);
+    lowPass.process(song, lowPassFrequency);
+
+    // Initialize the FFT object with the number of bands and set the audio input source to the sound file
+    fft = new FFT(this, bands);
+    fft.input(song);
+
+    // Load all existing data. If no song data exists, play the song data to record it
+    loadSongData();
+    loadBeatData();
+    if(isRecording) song.play();  
+}
 
 // Function that records the values of the wave as the song goes on
 void recordSongValues() {
@@ -132,6 +173,13 @@ void recordSongValues() {
     // Once the song stops playing, we don't need to record any more song values
     if(!song.isPlaying()) {
         isRecording = false;
+
+        // Make sure to normalize all values to be between 0 and 1
+        for(int i=0; i<averageValues.size(); i++)
+            averageValues.set(i, map(averageValues.get(i), minValue, maxValue, 0,1));
+        minValue = 0;
+        maxValue = 1;
+
         startViewIndex = 0;
         saveSongData();
         return;

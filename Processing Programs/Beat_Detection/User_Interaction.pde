@@ -45,11 +45,17 @@ void setCursor() {
 void keyPressed() {
     if(isRecording) return;
 
-    switch(keyCode) {
+    switch(key) {
         // Toggle between playing and pausing the song if the user clicks the space bar
         case ' ':
             if(song.isPlaying()) setCursor();
             else song.play();
+            break;
+        
+        // Move to the next song if the user clicks the 'N' key
+        case 'n':
+        case 'N':
+            setupNextSong();
             break;
     }
 }
