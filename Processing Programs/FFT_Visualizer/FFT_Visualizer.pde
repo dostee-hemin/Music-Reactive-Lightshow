@@ -1,4 +1,3 @@
-// Import the Processing Sound library
 import processing.sound.*;
 
 int bands = 512;                     // Number of frequency bands for the FFT
@@ -17,19 +16,32 @@ void setup() {
   // Initialize the FFT object with the number of bands and set the audio input source to the sound file
   fft = new FFT(this, bands);
   fft.input(file);
+
+  background(255);
 }
 
 void draw() {
   // Perform FFT analysis and store the result in the spectrum array
   fft.analyze(spectrum);
 
-  background(255);
+  // When the spectrogram reaches the end of the screen width, reset the canvas
+  if(frameCount % width == 0) background(255);
 
-  // Loop through each frequency band to draw the spectrum
-  stroke(0);
-  strokeWeight(1);
-  for(int i = 0; i < bands; i++) {
-    // Draw a vertical line for each band, where the line height is proportional to the spectrum value
-    line(i, height, i, height - spectrum[i] * height * 5);
+  loadPixels();
+  // Loop through every band in the spectrum
+  for(int i=0; i<bands; i++) {
+    // Set the intensity of the spectrum value to a value between 0 and 1
+    float intensity = map(spectrum[i],0,0.05,0,1);
+
+    // Calculate the position of the current band pixel
+    float x = frameCount%width;           // Moves to the right according to the frameCount
+    float y = height-(height-bands)/2-i;  // Low-to-high frequencies go from the bottom to top
+
+    // Get the index of the current pixel by converting the 2D-coordinates to a 1D-value
+    int pixelIndex = int(x + y * width);
+
+    // Set the pixel color to an orangish value based on the intensity of the current band
+    pixels[pixelIndex] = color(intensity*255,intensity*100,0);
   }
+  updatePixels();
 }
